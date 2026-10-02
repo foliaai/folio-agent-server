@@ -214,3 +214,5 @@ upload/
 
 # plan
 TODO
+# macOS
+.DS_Store
