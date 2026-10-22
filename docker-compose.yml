@@ -1,0 +1,38 @@
+# folio agent-server · prd（201.14，与 AKS/auth/skill 部署模式一致）
+#
+# 网络口径（与 folio-auth-server 同思路）：
+#   - 基础设施走容器名 + infra 外部网络：services_mysql / mongodb / services_redis /
+#     milvus-minio（milvus-gpu_default，auth-server 踩过 DNS 坑后确认的口径）/ litellm
+#   - 兄弟后端走 mysql_default 共网容器名直连：folio-auth-api:8003 / skill-service:8001
+#   - aks-api 不在共网上（aks-network 是其私有网），AKS_BASE_URL 用宿主机 IP :8000
+services:
+  agent-api:
+    build: .
+    container_name: agent-api
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    env_file:
+      - .env.production
+    volumes:
+      - ./config:/app/config:ro
+      # 沙箱审计 JSONL（SANDBOX_AUDIT_DIR=logs/sandbox）落宿主机，便于追溯
+      - ./logs:/app/logs
+    networks:
+      - mysql_default
+      - mongodb_default
+      - redis_default
+      - milvus-gpu_default
+      - logto_litellm_pgsql_app-network
+
+networks:
+  mysql_default:
+    external: true
+  mongodb_default:
+    external: true
+  redis_default:
+    external: true
+  milvus-gpu_default:
+    external: true
+  logto_litellm_pgsql_app-network:
+    external: true

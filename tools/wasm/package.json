@@ -1,0 +1,11 @@
+{
+  "name": "folio-wasm-buildchain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "folio sandbox JS/TS -> wasm component toolchain (ADR-0001)",
+  "dependencies": {
+    "@bytecodealliance/componentize-js": "^0.23.0",
+    "tsx": "^4.19.0"
+  }
+}

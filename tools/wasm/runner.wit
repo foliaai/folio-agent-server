@@ -1,0 +1,22 @@
+package folio:sandbox;
+
+/// folio 沙箱宿主接口：用户工具的唯一 I/O 通道。
+/// 设计约束：参数与返回值全部使用 string——wasmtime-py 的 component Val
+/// 编解码对 string 最稳；复合语义（错误、状态码）用 JSON 字符串承载。
+interface host {
+    /// 发起 HTTPS 请求（经 sidecar 的 allowlist/SSRF/配额检查）。
+    /// body / content-type 传空串表示不带。
+    /// 返回 JSON：成功 {"status": 200, "body": "..."}；被拒 {"error": "denied: not_in_allowlist"}。
+    http-fetch: func(url: string, body: string, content-type: string) -> string;
+
+    /// 读取本次调用的输入文件（内存 FS）。
+    /// 返回 base64 内容；不存在时返回 {"error": "file not found: ..."}。
+    read-file: func(name: string) -> string;
+}
+
+/// 用户工具 world：导出 run 作为唯一入口。
+/// 返回值即工具输出（任意字符串）。
+world runner {
+    import host;
+    export run: func(input: string) -> string;
+}

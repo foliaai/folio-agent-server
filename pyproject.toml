@@ -1,23 +1,48 @@
 [project]
 name = "agent-apps"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.2.0"
+description = "folio agent-server：智能体平台后端（统一运行时 + WASM 沙箱）"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "deepagents>=0.3.5",
+    "apscheduler>=3.10.0",
+    "beanie>=2.0.1,<2.1.0",
     "dotenv>=0.9.9",
     "fastapi[standard]>=0.128.0",
+    "folio-auth-core",
+    "httpx>=0.28.0",
     "loguru>=0.7.3",
-    "pymupdf>=1.26.7",
+    "minio>=7.2.0",
+    "motor>=3.7.1",
+    "openai-agents>=0.2.0",
+    "pillow>=11.0.0",
     "pymysql>=1.1.2",
     "redis[hiredis]>=7.1.0",
     "sqlalchemy>=2.0.45",
-    "tavily-python>=0.7.17",
+    "tavily-python>=0.7.0",
+    "tldextract>=5.3.2",
     "toml>=0.10.2",
+    "wasmtime>=31.0.0",
 ]
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+]
+
+[tool.uv.sources]
+# 本地开发用 wheel 快照（同 AKS 模式）；auth-core 仓库打 tag 后可换 git 依赖：
+#   folio-auth-core = { git = "https://github.com/foliaai/folio-auth-core.git", tag = "v0.1.0" }
+# 兄弟仓 path 依赖（../folio-auth-core）会让部署机 docker build 拿不到兄弟仓而挂，
+# wheel 进本仓 third_party/ 后构建上下文自包含。
+folio-auth-core = { path = "third_party/folio_auth_core-0.1.0-py3-none-any.whl" }
 
 [[tool.uv.index]]
 url = "https://pypi.tuna.tsinghua.edu.cn/simple"
 default = true
+
+[tool.pytest.ini_options]
+testpaths = ["test"]
+asyncio_mode = "auto"
+pythonpath = ["."]
