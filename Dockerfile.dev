@@ -1,0 +1,23 @@
+# 本地开发镜像（根目录 docker-compose.dev.yml 专用）：
+# 只装系统依赖 + uv + node，Python 依赖不进镜像——容器启动时 uv sync 到具名卷
+# /opt/venv，源码由 compose bind mount 到 /app，改 pyproject/uv.lock 免重建镜像。
+#
+# 特殊点：node——Pyodide 沙箱会自起 node 孙进程（SANDBOX_NODE_BIN=node），
+# 官方 node 二进制直接拷进来（libstdc++6 为其动态链接依赖）。
+# auth-core 走本仓 third_party/ wheel（同 AKS），无兄弟仓 path 依赖。
+# 生产镜像用同目录 Dockerfile（全量 COPY + uv sync --no-dev）。
+FROM python:3.13-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libffi-dev \
+    libstdc++6 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=node:22-bookworm-slim /usr/local/bin/node /usr/local/bin/node
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /usr/local/bin/
+
+ENV UV_PROJECT_ENVIRONMENT=/opt/venv \
+    PYTHONUNBUFFERED=1
+
+WORKDIR /app

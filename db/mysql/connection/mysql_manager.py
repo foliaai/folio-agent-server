@@ -72,23 +72,32 @@ class MySQLServerManager(BaseMySQLManager):
 
         super().__init__()
 
-        # 从配置文件读取 MySQL 配置
-        mysql_config = config_manager.get("mysql", {})
+        # 从配置文件读取 MySQL 配置（host/database 由环境变量强制注入，与 AKS 同构）
+        mysql_config = config_manager.get_mysql_config()
         mysql_auth = env_manager.get_mysql_auth()
 
-        # 优先使用参数，其次使用配置文件，最后使用默认值
-        self.host = host or mysql_config.get("host", "localhost")
-        self.port = port or mysql_config.get("port", 3306)
-        self.user = user or mysql_auth.get("user", "root")
+        self.host = host or mysql_config.get("host")
+        self.port = port or mysql_config.get("port")
+        self.user = user or mysql_auth.get("user")
 
-        # 密码优先从参数获取，其次从环境变量获取
-        if password:
-            self.password = quote_plus(password)
-        else:
-            mysql_password = env_manager.get("KNOWLEDGE_MYSQL_PASSWORD") or mysql_auth.get("password", "")
-            self.password = quote_plus(mysql_password)
+        # 密码：参数优先，其次环境变量（必填注入，无兜底）
+        self.password = quote_plus(password or mysql_auth.get("password", ""))
 
-        self.database = database or mysql_config.get("database", "knowledge_base")
+        self.database = database or mysql_config.get("database")
+
+        # 连接四要素必填（缺失直接抛错，不静默连 localhost/默认库）
+        missing = [
+            var
+            for var, val in (
+                ("MYSQL_HOST", self.host),
+                ("MYSQL_USER", self.user),
+                ("MYSQL_PASSWORD", self.password),
+                ("MYSQL_DATABASE", self.database),
+            )
+            if not val
+        ]
+        if missing:
+            raise ValueError(f"MySQL 配置缺失（检查 .env / 环境变量）: {', '.join(missing)}")
 
         # 连接池配置：优先使用参数，其次使用配置文件，最后使用默认值
         self.pool_size = pool_size if pool_size != 5 else mysql_config.get("pool_size", 5)

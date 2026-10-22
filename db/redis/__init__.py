@@ -20,8 +20,8 @@ from db.redis.connection import (
     get_redis_manager,
     RedisType,
 )
-from db.redis.namespace import RedisNamespace
-from db.redis.keys import (
+from db.redis.models.namespace import RedisNamespace
+from db.redis.models.keys import (
     RedisKeys,
     KeyPattern,
     get_key_pattern,

@@ -78,12 +78,9 @@ class BaseMySQLManager(ABC):
 
         try:
             # 导入 Base，确保所有模型都被注册
+            from db.mysql.models import agent_conversation  # noqa: F401 —— 注册表模型
+            from db.mysql.models import agent_session_file  # noqa: F401 —— 注册表模型（会话附件）
             from db.mysql.models.base_model import Base
-            
-            # 导入通用服务模型
-            from db.mysql.models.common import file_storage
-
-            # TODO：导入其他业务模型
 
             Base.metadata.create_all(self.engine)
             logger.info("成功创建数据库表结构")

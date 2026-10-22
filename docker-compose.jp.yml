@@ -1,0 +1,19 @@
+# folio agent-server · JP（19.12）
+#
+# JP 拓扑无共享 docker 网络：MySQL/MongoDB/Redis/MinIO 全在 19.122，按 IP 直连；
+# auth/aks/skill 与本服务同在 19.12 宿主机，容器内经 host.docker.internal
+# （extra_hosts host-gateway）走宿主机端口 8003/8000/8001。浏览器直连 19.12:8002。
+services:
+  agent-api:
+    build: .
+    container_name: agent-api-jp
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+    env_file:
+      - .env.jp
+    volumes:
+      - ./config:/app/config:ro
+      - ./logs:/app/logs
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

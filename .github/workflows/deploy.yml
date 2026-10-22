@@ -1,0 +1,21 @@
+name: Deploy Agent Server
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, prod]
+    steps:
+      - name: Deploy Agent Server
+        run: |
+          set -e
+          cd ${{ secrets.DEPLOY_PATH }}/folio-agent-server
+          # auth-server 部署踩过坑：.env 没 scp 就构建，容器起来才报缺变量——这里提前挡住
+          test -f .env.production || { echo "❌ .env.production 缺失，先写好 scp 上来再跑"; exit 1; }
+          git pull origin main
+          docker compose up -d --build
+          docker image prune -f
+          echo "✅ Agent Server deployed at $(date)"

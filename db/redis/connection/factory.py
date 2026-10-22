@@ -51,10 +51,10 @@ class RedisManagerFactory:
         # 从配置文件读取默认值
         redis_config = config_manager.get_redis_config()
         
-        # 获取关键配置参数（用于区分不同的实例）
-        host = kwargs.get("host", redis_config.get("host", "localhost"))
+        # 获取关键配置参数（用于区分不同的实例；host/db 必填已由注入保证）
+        host = kwargs.get("host", redis_config.get("host"))
         port = kwargs.get("port", redis_config.get("port", 6379))
-        db = kwargs.get("db", redis_config.get("db", 0))
+        db = kwargs.get("db", redis_config.get("db"))
         
         # 生成缓存键：redis_type:host:port:db
         cache_key = f"{redis_type}:{host}:{port}:{db}"

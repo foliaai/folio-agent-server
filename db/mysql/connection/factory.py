@@ -97,7 +97,7 @@ class MySQLManagerFactory:
             )
         elif db_type == "mysql":
             # 从配置文件读取 MySQL Server 配置
-            mysql_config = config_manager.get("mysql", {})
+            mysql_config = config_manager.get_mysql_config()
             manager = MySQLServerManager(
                 host=kwargs.get("host") if "host" in kwargs else mysql_config.get("host"),
                 port=kwargs.get("port") if "port" in kwargs else mysql_config.get("port"),

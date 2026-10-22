@@ -136,6 +136,9 @@ celerybeat.pid
 
 # Environments
 .env
+.env.dev
+.env.production
+.env.jp
 .envrc
 .venv
 env/
@@ -216,3 +219,8 @@ upload/
 TODO
 # macOS
 .DS_Store
+
+# sandbox node deps
+src/sandbox/sidecar/nodejs/node_modules/
+tools/wasm/node_modules/
+logs/

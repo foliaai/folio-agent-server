@@ -64,10 +64,12 @@ class StandaloneRedisManager(BaseRedisManager):
         redis_config = config_manager.get_redis_config()
         redis_auth = env_manager.get_redis_auth()
         
-        # 优先使用参数，其次使用配置文件，最后使用默认值
-        self.host = host or redis_config.get("host", "localhost")
+        # 连接信息必填：缺失即配置错误，直接报错——不做"猜默认"兜底
+        self.host = host or redis_config.get("host")
         self.port = port or redis_config.get("port", 6379)
-        self.db = db if db is not None else redis_config.get("db", 0)
+        self.db = db if db is not None else redis_config.get("db")
+        if not self.host or self.db is None:
+            raise ValueError("Redis 配置缺失（检查 .env: REDIS_HOST / REDIS_DB）")
         
         # 认证信息：优先从参数获取，其次从环境变量获取
         self.username = username or redis_auth.get("username", "")

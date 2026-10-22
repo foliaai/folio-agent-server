@@ -1,66 +1,23 @@
-# Agentic knowledge system configuration file
+# folio agent-server 配置文件
+# 认证信息不放这里，走环境变量（见 env.example）
 
-# ==================== 数据库配置 ====================
+# ==================== 数据库配置（MySQL 会话元信息 + MongoDB 消息正文，与 AKS 双库分工一致） ====================
 
-# Milvus 向量数据库配置
-[milvus]
-# ========== 模式选择 ==========
-# 模式: "server" (标准版，连接远程服务) 或 "lite" (本地版，用于开发测试)
-mode = "server"
-
-# ========== Server版配置（生产环境） ==========
-host = "192.168.201.14"
-port = 19530
-# 数据库名称（Milvus 2.x支持多数据库）
-database = "default"
-# 连接超时时间（秒）
-timeout = 30
-# 连接别名前缀
-alias_prefix = "aks_milvus"
-
-# ========== Lite版配置（开发/测试环境） ==========
-# 本地数据库文件路径
-lite_db_path = "./data/milvus.db"
-# Lite版最大并发连接数
-lite_max_connections = 10
-
-# ========== 公共配置 ==========
-# 默认集合名称
-default_collection = "knowledge_vectors"
-# 向量维度
-vector_dim = 1024
-# 索引类型: IVF_FLAT, IVF_SQ8, IVF_PQ, HNSW
-index_type = "HNSW"
-# 距离度量: L2, IP, COSINE
-metric_type = "COSINE"
-# 索引参数
-index_params = { M = 16, efConstruction = 256 }
-# 搜索参数
-search_params = { ef = 128 }
-
-# MongoDB 文档数据库配置
+# MongoDB 文档数据库配置（会话消息正文存储）
 [mongodb]
-host = "192.168.201.14"
+# host 由环境变量 MONGODB_HOST 提供（dev: 192.168.201.14 / prod: 容器名）
+# 数据库名称由环境变量 MONGODB_DATABASE 提供（dev: dev_default / prod: default）
 port = 27017
-# 数据库名称
-database = "default"
-# 连接超时时间（毫秒）
 connect_timeout_ms = 5000
 server_selection_timeout_ms = 5000
 # 连接池配置
 max_pool_size = 50
 min_pool_size = 10
 
-# MySQL 关系数据库配置
+# MySQL 关系数据库配置（agent_session 会话元信息；消息正文在 MongoDB）
 [mysql]
-# ========== 模式选择 ==========
-# 模式: "mysql" (MySQL Server) 或 "sqlite" (SQLite本地数据库)
-mode = "mysql"
-
-# ========== MySQL Server配置 ==========
-host = "192.168.201.14"
+# host / database 由环境变量 MYSQL_HOST / MYSQL_DATABASE 提供（必填注入）
 port = 3306
-database = "default"
 # 字符集
 charset = "utf8mb4"
 # 连接池配置
@@ -69,93 +26,48 @@ max_overflow = 20
 pool_timeout = 30
 pool_recycle = 3600
 # 是否显示SQL语句
-echo = true
-
-# ========== SQLite配置 ==========
-# SQLite数据库文件路径
-sqlite_db_path = "data/sqlite.db"
-# 是否显示SQL语句
-sqlite_echo = false
-
-# Neo4j 图数据库配置
-[neo4j]
-uri = "bolt://localhost:7687"
-# 连接池配置
-max_connection_lifetime = 3600
-max_connection_pool_size = 50
-connection_acquisition_timeout = 60
-# 数据库名称（企业版支持多数据库）
-database = "neo4j"
+echo = false
 
 # Redis 缓存配置
 [redis]
 # 模式选择：standalone（单机）或 cluster（集群）
 mode = "standalone"
 
-host = "192.168.201.14"
+# host 由环境变量 REDIS_HOST 提供；db 编号由 REDIS_DB 提供（dev/prod 实例隔离）
 port = 6379
-# 数据库编号（0-15）
-db = 1
 max_connections = 50        # 连接池最大连接数
 socket_timeout = 5.0        # Socket 超时时间（秒）
-socket_connect_timeout = 5.0  # Socket 连接超时时间（秒）
+socket_connect_timeout = 5.0  # Socket 超时时间（秒）
 decode_responses = true     # 是否自动解码为字符串
 encoding = "utf-8"          # 字符编码
 
 # 业务配置（可选）
-key_prefix = "aks:"        # 全局键前缀
-default_expire = 3600      # 默认过期时间（秒）
+key_prefix = "agent_apps:"  # 全局键前缀
+default_expire = 3600       # 默认过期时间（秒）
 
-# MinIO 对象存储配置
-[minio]
-endpoint = "localhost:9000"
-# 是否使用安全连接
-secure = false
-# 默认存储桶
-default_bucket = "knowledge-files"
-# 区域
-region = "us-east-1"
-# 上传分片大小（字节）
-part_size = 10485760  # 10MB
+# ==================== 沙箱配置（ADR-0001 资源硬限制） ====================
 
-# ==================== 模型配置 ====================
-
-# Embedding 模型配置（本地部署）
-[embedding]
-# 本地Embedding服务API地址（不要包含 /v1，代码会自动添加 /v1/embeddings）
-# 例如: "http://192.168.201.14:18084/v1" -> 最终请求 "http://192.168.201.14:18084/v1/embeddings"
-api_base = "http://192.168.201.14:18084/v1"
-# 模型名称或路径
-model_name = "qwen3-embedding-0.6b"
-# 向量维度（必须与Milvus配置的vector_dim一致）
-dimension = 1024
-# 批处理大小
-batch_size = 64
-# 请求超时时间（秒，必填）
-timeout = 60.0
-# 是否启用重试机制
-enable_retry = true
-# 最大重试次数（仅在enable_retry=true时生效）
-max_retries = 3
-# 重试延迟时间（秒）
-retry_delay = 0.5
-# 重试策略: fixed（固定延迟）, exponential（指数退避）, linear（线性递增）
-retry_strategy = "exponential"
-# 最大重试延迟上限（秒）
-max_retry_delay = 10.0
-
-
-# ==================== 第三方服务配置 ====================
-
-# MinerU 服务配置（PDF解析）
-[mineru]
-# API服务地址
-api_url = "http://192.168.201.14:18000"
-# 超时时间（秒）
-timeout = 300
-# 分页并发设置
-max_pages_per_request = 4
-max_concurrent_requests = 3
+[sandbox]
+# 单次调用 fuel 上限（Wasmtime 确定性指令计量，1e8 = 默认值）
+fuel_per_call = 1000000000
+# 单次调用墙钟超时（毫秒），超时 kill store
+wall_clock_timeout_ms = 10000
+# Store 内存上限（MiB），含内存 FS
+memory_limit_mb = 64
+# 输出（stdout + 返回值）截断上限（MiB）
+output_limit_mb = 1
+# 单用户并发执行槽
+max_concurrency_per_user = 2
+# sidecar 进程池初始大小
+sidecar_pool_size = 2
+# sidecar 连续失败自杀阈值（次）
+sidecar_max_failures = 3
+# Pyodide Node 孙进程墙钟（毫秒，应高于外层 wall_clock_timeout_ms）
+node_runner_timeout_ms = 15000
+# http_fetch 单请求体大小上限（MiB）
+http_fetch_max_body_mb = 5
+# http_fetch 每日次数配额（per-agent）
+http_fetch_daily_quota = 1000
 
 # ==================== 系统配置 ====================
 
@@ -167,57 +79,45 @@ level = "INFO"
 log_dir = "logs"
 # 日志文件名
 log_file = "dev.log"
-# 日志格式
-format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 # 单个日志文件最大大小（MB）
 max_bytes = 100
 # 保留的日志文件数量
 backup_count = 10
 
-# 文件处理配置
-[file_upload]
-# 支持的文件类型
-supported_formats = ["pdf", "docx", "pptx", "xlsx", "txt", "md", "json"]
-# 最大文件大小（MB）
-max_file_size = 100
-# 文件上传临时目录
-temp_dir = "upload"
+# ==================== 会话附件工作空间（docs/会话附件与工作空间设计.md） ====================
 
-# ==================== 文件存储服务配置 ====================
-
+# 对象存储（D17：同实例新桶，与 AKS 桶隔离）
 [storage]
-# 存储根目录
-storage_root = "./upload"
-# 是否使用哈希目录结构（避免单目录文件过多）
-use_hash_structure = true
-# 是否启用压缩（暂未实现）
-enable_compression = false
-# 单文件最大大小（MB）
-max_file_size_mb = 50
-# 批量上传最大文件数
-max_batch_size = 10
+type = "minio"
 
-# 过期时间配置
-[storage.expiration]
-# 临时文件过期时间（小时）
-temp_hours = 1
-# 会话文件过期时间（小时）
-session_hours = 2
+[minio]
+# endpoint / access_key / secret_key 由环境变量 MINIO_ENDPOINT / MINIO_ACCESS_KEY / MINIO_SECRET_KEY 提供
+secure = false
+region = "us-east-1"
 
-# 允许的文件类型（MIME类型白名单）
-[storage.allowed_types]
-mime_types = [
-    "application/pdf",
-    "image/jpeg",
-    "image/jpg",
-    "image/png",
-    "image/gif",
-    "image/webp",
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    "text/plain",
-    "text/markdown",
-    "application/json"
-]
-extensions = [".pdf", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".docx", ".xlsx", ".pptx", ".txt", ".md", ".json"]
+# MinerU 文档解析（D3：共用 AKS 侧实例，本服务自持薄客户端直连）
+[mineru]
+# api_url 由环境变量 MINERU_API_URL 提供
+timeout = 600          # 任务总超时（秒）
+poll_interval = 1.0    # 轮询间隔（秒）
+
+# 工作空间业务参数（硬限制 D10 / 清理 D9、D11）
+[workspace]
+upload_max_file_mb = 50            # 单文件上限
+upload_max_files_per_session = 20  # 单会话附件数上限
+cleanup_hour = 3                   # 清理任务每日执行时刻（本地时区）
+upload_retention_days = 30         # 软删会话后 upload 附件保留天数
+agent_retention_days = 7           # 软删会话后 agent 产物保留天数
+temp_retention_hours = 24          # 临时区未绑定回收（D11）
+failed_parse_retention_days = 7    # 解析失败行保留天数
+cleanup_batch_size = 500           # 单次清理对象数上限（防 IO 突刺）
+
+# 沙箱工作空间读写闭环（§3.3；预载现在生效，drain/files_out 为二期）
+[sandbox.workspace]
+preload_max_files = 20
+preload_max_total_mb = 32
+drain_max_files = 10
+drain_max_single_mb = 10
+drain_max_total_mb = 20
+session_total_quota_mb = 500
+agent_subquota_mb = 200
