@@ -38,15 +38,24 @@ from src.sandbox.sidecar.engines.base import BaseEngine
 from src.sandbox.sidecar.hostfuncs import HostContext
 
 
-def _linux_address_space_limit(mem_mb: int):
-    """Linux：以 RLIMIT_AS 限制 Node 进程虚拟地址空间（wasm 堆增长受此约束）。
-    macOS 的 setrlimit(RLIMIT_AS) 是 no-op，开发机退化为墙钟兜底（生产为 Linux）。"""
+# Pyodide 运行时余量：启动地板实测 192MB 仍 OOM、256MB 通过，但运行期 V8 GC/结果序列化
+# 峰值会再推高 ~100MB（2MB 结果洪水在 cap=320MB 下 GC 线程崩、512MB 下稳定），故取 512MB
+_PYODIDE_BASELINE_MB = 512
+
+
+def _linux_data_limit(mem_mb: int):
+    """Linux：以 RLIMIT_DATA 限制 Node 进程可写内存（brk + 私有匿名映射，内核 ≥4.7），
+    阈值 = memory_limit_mb + Pyodide 运行时余量；wasm 堆增长同样受此约束，
+    用户代码超额分配在 guest 内以 MemoryError 干净失败而非进程死亡。
+    不能改回 RLIMIT_AS：它限的是虚拟地址空间，V8 启动即预留数 GB（指针压缩 cage、wasm guard 页），
+    64MB 档下 node 在 exec 后毫秒级段错误，ready 帧都发不出。
+    macOS 的 setrlimit(RLIMIT_DATA) 是 no-op，开发机退化为墙钟兜底（生产为 Linux）。"""
 
     def _apply() -> None:
         import resource
 
-        limit = mem_mb * 1024 * 1024
-        resource.setrlimit(resource.RLIMIT_AS, (limit, limit))
+        limit = (mem_mb + _PYODIDE_BASELINE_MB) * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_DATA, (limit, limit))
 
     return _apply if platform.system() == "Linux" else None
 
@@ -74,7 +83,7 @@ class PyodideEngine(BaseEngine):
         host = HostContext(request)
 
         # Node 堆上限独立于 memory_limit_mb：Pyodide 运行时自身常驻 ~150-200MB old space，
-        # 用 memory_limit_mb 直配会误杀正常执行；Python 侧的真实限制靠 RLIMIT_AS（Linux）
+        # 用 memory_limit_mb 直配会误杀正常执行；Python 侧的真实限制靠 RLIMIT_DATA（Linux）
         # 与 wasm 堆编译期上限（2GB）。64MB 默认档下给 256MB JS 堆余量。
         node_heap_mb = max(256, limits.memory_limit_mb)
         cmd = [self._node_bin, f"--max-old-space-size={node_heap_mb}", "runner.js"]
@@ -87,7 +96,7 @@ class PyodideEngine(BaseEngine):
                 stderr=subprocess.PIPE,
                 text=True,
                 bufsize=1,
-                preexec_fn=_linux_address_space_limit(limits.memory_limit_mb),
+                preexec_fn=_linux_data_limit(limits.memory_limit_mb),
             )
         except OSError as e:
             return self.err(SandboxErrorCode.ENGINE_CRASH, f"failed to spawn node runner: {e}")
@@ -224,7 +233,9 @@ def frame_error(raw: object) -> tuple[SandboxErrorCode | None, str]:
         return None, ""
     text = str(raw)
     lowered = text.lower()
-    if "memory" in lowered and ("allocat" in lowered or "heap" in lowered or "out of memory" in lowered):
+    if "memoryerror" in lowered or (
+        "memory" in lowered and ("allocat" in lowered or "heap" in lowered or "out of memory" in lowered)
+    ):
         return SandboxErrorCode.OOM, text
     if "syntaxerror" in lowered or "indentationerror" in lowered:
         return SandboxErrorCode.BAD_CODE, text
