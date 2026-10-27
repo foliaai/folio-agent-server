@@ -18,3 +18,4 @@ data/
 .env.production
 .env.jp
 .envrc
+src/sandbox/sidecar/nodejs/node_modules/
